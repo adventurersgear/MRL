@@ -1,4 +1,6 @@
 from math import factorial
+import tkinter as tk
+
 class HostClock:
     def __init__(self):
         self.time_step = 0
@@ -11,13 +13,7 @@ class MemorySpace:
         self.topology_map = {}
     def add_node(self, node):
         self.nodes.append(node)
-        self.update_topology(node)
-    def update_topology(self, new_node):
-        if new_node.base == 0:
-            for node in self.nodes:
-                if new_node.base == 0 and node is not new_node:
-                    node.topological_vector.append(new_node)
-                    new_node.topological_vector.append(node)
+        topology_engine.update_topology(node)
     
 
 class BitStream:
@@ -47,19 +43,19 @@ class PreMemorySpaceStaging:
             memory_space.add_node(node)
         self.staging_nodes = []
 
-class TopologyEngine:
+class TopologyEngine:    
     def __init__(self, memory_space):
         self.memory_space = memory_space
-    def update_topology(self):
-        pass
-    def calculate_walks_and_steps(self):
-        n = len(self.memory_space.nodes)
-        if n < 2:
-            return 0, 0  # No walks or steps if less than 2 nodes
+    def update_topology(self, new_node):
+        if new_node.base == 0:
+            for node in self.memory_space.nodes: 
+                if node is not new_node:
+                    if new_node not in node.topological_vector:
+                        node.topological_vector.append(new_node)
+                    if node not in new_node.topological_vector:
+                        new_node.topological_vector.append(node)
+            print(f"Debug: Topological Vector for Node {new_node}: {new_node.topological_vector}")
 
-        num_unique_walks = factorial(n - 1)
-        total_steps = (n - 1) * num_unique_walks
-        return num_unique_walks, total_steps
 
 class ElementUpdateEngine:
     def __init__(self, memory_space, perception_function):
@@ -77,14 +73,12 @@ class ElementUpdateEngine:
 class Node:
     def __init__(self, base, host_clock):
         self.base = base
-        self.temporal_vector = []
+        self.temporal_vector = [0, 0]  # Initialize with [0, 0]
         self.topological_vector = []
-        self.place = None  # Will be updated later
         self.host_clock = host_clock
         self.time_step = host_clock.time_step
-    
     def __repr__(self) -> str:
-        return f"Node(Base-{self.base}, Temporal Vector - {self.temporal_vector}, Topological Vector Length - {len(self.topological_vector)})"
+        return f"Base-{self.base}, Temporal Vector-{self.temporal_vector}, Topological Vector Length-{len(self.topological_vector)}"
 
 class PerceptionFunction:
     def __init__(self):
@@ -99,6 +93,20 @@ class PerceptionFunction:
                 print(f"PERCEPTION FUNCTION INITIATED AT Element(Base-{node.base}, Temporal Vector - {node.temporal_vector}) FOR Future Element(Base-{future_base}, Temporal Vector - {future_temporal_vector})")
                 break  # Perceive only one base-0 element for now
 
+def update_terminal():
+    print("\033c", end="")  # Clear terminal
+    print(f"Step Time: {host_clock.time_step}")  # Static content
+    for line in terminal_buffer[-buffer_size:]:  # Dynamic content
+        print(line)
+
+####################################################
+####################################################
+####################################################
+
+terminal_buffer = []
+buffer_size = 10  # 10 lines for dynamic content
+static_lines = 3  # 3 lines for static content
+
 # Initialize Memory Space
 memory_space = MemorySpace()
 
@@ -110,6 +118,7 @@ element_update_engine = ElementUpdateEngine(memory_space, perception_function)
 
 # Initialize Host Clock
 host_clock = HostClock()
+host_clock.time_step = 0
 
 # Initialize Bit Stream
 bit_stream = BitStream()
@@ -126,31 +135,32 @@ topology_engine = TopologyEngine(memory_space)
 # Initialize Element Update Engine
 element_update_engine = ElementUpdateEngine(memory_space, perception_function)
 
-# Tick Loop for Simulation
-for i in range(7):  # Run for 10 ticks
-    host_clock.tick()
+# Main simulation loop
+for i in range(10):
+    host_clock.tick()  # Increment the host clock
     
-    # Generate Bits
+    # Generate new bits
     bit_stream.generate_bits(1)
     
-    # Infuse Bits to Elements and Stage Them
+    # Create new elements based on bits and stage them
     infuser.generate_elements(pre_memory_staging)
-
-    if i == 5:
-        perception_function.perceive(memory_space)
     
-    # Flush Staging to Memory Space
+    # Flush staging to Memory Space
     pre_memory_staging.flush_to_memory_space(memory_space)
     
-    # Update Topology
-    topology_engine.update_topology()
+    # Update topology
+    for new_node in memory_space.nodes:
+        topology_engine.update_topology(new_node)
+        
+    # # Update elements if any
+    # if i == 5:  # Just an example condition
+    #     perception_function.perceive(memory_space)
+    # if perception_function.elements_to_transform:
+    #     element_update_engine.update_elements()
     
-    if perception_function.elements_to_transform:
-        element_update_engine.update_elements()
-    
-    # Print elements in MemorySpace
-    print(f"Tick {host_clock.time_step} completed. MemorySpace contains {len(memory_space.nodes)} elements.")
-    
-    # Print element structure for verification
+    # Clear terminal and print step time
+    print("\033c", end="")
+    print(f"Step Time: {host_clock.time_step}")
     for idx, node in enumerate(memory_space.nodes):
-        print(f"Element {idx}: Base-{node.base}, Temporal Vector-{node.temporal_vector}, Topological Vector-{node.topological_vector}")
+        print(f"Element {idx}: {node}")
+    print(f"Tick {host_clock.time_step} completed.")
